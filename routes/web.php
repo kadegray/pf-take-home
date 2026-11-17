@@ -23,6 +23,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::patch('/profile/toggle-admin', [ProfileController::class, 'toggleAdmin'])->name('profile.toggle-admin');
 
     Route::get('/generate', [GenerationController::class, 'create'])->name('generate.create');
     Route::post('/generate/estimate', [GenerationController::class, 'estimate'])->name('generate.estimate');

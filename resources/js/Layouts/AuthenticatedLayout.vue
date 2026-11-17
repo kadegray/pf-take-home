@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -9,7 +9,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { formatMicros } from '@/money';
 
 const showingNavigationDropdown = ref(false);
-const isAdmin = usePage().props.auth.user?.is_admin ?? false;
+const isAdmin = computed(() => usePage().props.auth.user?.is_admin ?? false);
 </script>
 
 <template>

@@ -41,6 +41,18 @@ class ProfileController extends Controller
     }
 
     /**
+     * Toggle the user's own admin flag.
+     */
+    public function toggleAdmin(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $user->is_admin = ! $user->is_admin;
+        $user->save();
+
+        return Redirect::route('profile.edit');
+    }
+
+    /**
      * Delete the user's account.
      */
     public function destroy(Request $request): RedirectResponse
