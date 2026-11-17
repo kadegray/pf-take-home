@@ -8,15 +8,27 @@ take-home assessment for PromptEdit.
 
 ## What it does
 
-- **Generate** an image from a prompt, size, quality, and optional reference
-  images, with a live, server-computed cost estimate before you submit.
-- **History** shows each generation's live status (queued → processing →
+- **Generating.** A page where users write a prompt and choose a size,
+  quality, and optional reference images, with a live, server-computed cost
+  estimate before they submit.
+- **History.** Each generation's live status (queued → processing →
   succeeded/failed), its estimated and final cost, and the resulting image.
-- **Credits**: every account starts with a small balance; generating holds the
-  estimate up front and settles to the real cost once Pixelforge resolves it.
-  A "buy credits" page tops up the balance (fake, no real payment).
-- **Admin report** (for admin users): spend, provider cost, and profit by day
-  and by user, reconcilable against Pixelforge's own `GET /v1/usage`.
+- **Webhooks.** Pixelforge's results are received and verified, reaching the
+  right state even when events arrive twice or out of order.
+- **Profile.** Update your name/email/password from the profile page.
+
+## Stretch Goals
+
+- **Admin report.** A page at `/admin/report`, for admin users, showing
+  credit spend, provider cost, and profit by day and by user, reconcilable
+  against Pixelforge's own `GET /v1/usage`. **Self-service access:** the
+  profile page has an "Admin" toggle anyone can flip to grant themselves
+  access, so the report is reachable without seeding an admin account by
+  hand.
+- **Balances.** Every account starts with a small credit balance; generating
+  holds the estimate up front and settles to the real cost once Pixelforge
+  resolves it. A "buy credits" page tops up the balance (fake, no real
+  payment), and generating is blocked when the balance can't cover it.
 
 ## Why it's built this way
 
@@ -76,6 +88,9 @@ php artisan test
 
 Covers pricing/rounding correctness (`tests/Unit/PricingTest.php`), webhook
 signature verification, idempotency, and out-of-order delivery
-(`tests/Feature/WebhookTest.php`), the credit ledger
-(`tests/Feature/CreditLedgerTest.php`, `GenerationBalanceTest.php`), and the
-admin report (`tests/Feature/AdminReportTest.php`).
+(`tests/Feature/WebhookTest.php`), the credit ledger and balance checks
+(`tests/Feature/CreditLedgerTest.php`, `GenerationBalanceTest.php`,
+`CreditControllerTest.php`), generation history
+(`tests/Feature/GenerationShowTest.php`), and the admin report
+(`tests/Feature/AdminReportTest.php`). The self-service "Admin" toggle
+(`ProfileController::toggleAdmin`) isn't covered by a test yet.
