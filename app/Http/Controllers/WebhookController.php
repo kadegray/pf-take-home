@@ -106,11 +106,17 @@ class WebhookController extends Controller
         $usage = $payload['usage'] ?? [];
         $rates = $payload['rates'] ?? [];
 
+        // Stored separately (not derived later by dividing actual_cost_micros
+        // back by 1.25) so the admin report can reconcile exactly against
+        // Pixelforge's own GET /v1/usage, which reports pre-markup cost.
+        $providerCostMicros = $this->pricing->costFromUsage($usage, $rates);
+
         $generation->update([
             'status' => GenerationStatus::Succeeded,
             'usage' => $usage,
             'rates' => $rates,
-            'actual_cost_micros' => $this->pricing->withMarkup($this->pricing->costFromUsage($usage, $rates)),
+            'provider_cost_micros' => $providerCostMicros,
+            'actual_cost_micros' => $this->pricing->withMarkup($providerCostMicros),
             'image_url' => $payload['image_url'] ?? null,
             'image_url_expires_at' => $payload['image_url_expires_at'] ?? null,
             'completed_at' => $payload['completed_at'] ?? now(),
@@ -130,6 +136,7 @@ class WebhookController extends Controller
             'error_code' => $error['code'] ?? null,
             'error_message' => $error['message'] ?? null,
             'actual_cost_micros' => 0,
+            'provider_cost_micros' => 0,
             'completed_at' => $payload['completed_at'] ?? now(),
         ]);
     }

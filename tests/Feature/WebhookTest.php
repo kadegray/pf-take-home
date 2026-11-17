@@ -110,6 +110,7 @@ class WebhookTest extends TestCase
         $generation->refresh();
         $this->assertSame(GenerationStatus::Succeeded, $generation->status);
         // 10*5 + 0*10 + 100*40 + 50*12.5 = 50 + 0 + 4000 + 625 = 4675; *1.25 = 5843.75 -> 5844
+        $this->assertSame(4675, $generation->provider_cost_micros);
         $this->assertSame(5844, $generation->actual_cost_micros);
         $this->assertNotNull($generation->image_url);
         $this->assertSame(1, WebhookEvent::count());
@@ -177,6 +178,7 @@ class WebhookTest extends TestCase
         $generation->refresh();
         $this->assertSame(GenerationStatus::Failed, $generation->status);
         $this->assertSame(0, $generation->actual_cost_micros);
+        $this->assertSame(0, $generation->provider_cost_micros);
         $this->assertSame('content_policy_violation', $generation->error_code);
     }
 

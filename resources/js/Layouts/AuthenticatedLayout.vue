@@ -5,9 +5,10 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
+const isAdmin = usePage().props.auth.user?.is_admin ?? false;
 </script>
 
 <template>
@@ -50,6 +51,13 @@ const showingNavigationDropdown = ref(false);
                                     :active="route().current('history.index')"
                                 >
                                     History
+                                </NavLink>
+                                <NavLink
+                                    v-if="isAdmin"
+                                    :href="route('admin.report')"
+                                    :active="route().current('admin.report')"
+                                >
+                                    Report
                                 </NavLink>
                             </div>
                         </div>
@@ -169,6 +177,13 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('history.index')"
                         >
                             History
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            v-if="isAdmin"
+                            :href="route('admin.report')"
+                            :active="route().current('admin.report')"
+                        >
+                            Report
                         </ResponsiveNavLink>
                     </div>
 

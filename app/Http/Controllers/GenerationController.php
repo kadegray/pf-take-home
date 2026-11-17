@@ -100,6 +100,7 @@ class GenerationController extends Controller
             $generation->update([
                 'status' => GenerationStatus::Failed,
                 'actual_cost_micros' => 0,
+                'provider_cost_micros' => 0,
                 'error_code' => $e->pixelforgeCode,
                 'error_message' => $e->getMessage(),
                 'completed_at' => now(),
