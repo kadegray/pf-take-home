@@ -28,6 +28,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/generate', [GenerationController::class, 'create'])->name('generate.create');
     Route::post('/generate/estimate', [GenerationController::class, 'estimate'])->name('generate.estimate');
     Route::post('/generate', [GenerationController::class, 'store'])->name('generate.store');
+
+    Route::get('/history', [GenerationController::class, 'index'])->name('history.index');
+    Route::get('/history/poll', [GenerationController::class, 'poll'])->name('history.poll');
 });
 
 Route::post('/webhooks/pixelforge', [WebhookController::class, 'handlePixelforge'])->name('webhooks.pixelforge');

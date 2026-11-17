@@ -4,17 +4,15 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import { formatMicros } from '@/money';
 
 const props = defineProps({
     sizes: { type: Array, required: true },
     qualities: { type: Array, required: true },
     maxReferenceImages: { type: Number, required: true },
 });
-
-const page = usePage();
-const lastGeneration = computed(() => page.props.flash?.generation ?? null);
 
 const form = useForm({
     prompt: '',
@@ -28,14 +26,6 @@ const referenceImageInputs = ref(Array.from({ length: props.maxReferenceImages }
 const estimatedCostMicros = ref(null);
 const estimating = ref(false);
 let estimateTimer = null;
-
-function formatMicros(micros) {
-    if (micros === null || micros === undefined) {
-        return '—';
-    }
-
-    return '$' + (micros / 1_000_000).toFixed(4);
-}
 
 function scheduleEstimate() {
     clearTimeout(estimateTimer);
@@ -72,12 +62,10 @@ watch(
 function submit() {
     form.reference_images = referenceImageInputs.value.filter((url) => url.trim() !== '');
 
-    form.post(route('generate.store'), {
-        onSuccess: () => {
-            form.reset('prompt');
-            referenceImageInputs.value = Array.from({ length: props.maxReferenceImages }, () => '');
-        },
-    });
+    // On success the backend redirects to History, so there's nothing to
+    // reset here - the component unmounts. On failure (e.g. a rejected
+    // prompt), the fields intentionally stay as the user left them.
+    form.post(route('generate.store'));
 }
 </script>
 
@@ -91,25 +79,6 @@ function submit() {
 
         <div class="py-12">
             <div class="mx-auto max-w-3xl space-y-6 sm:px-6 lg:px-8">
-                <div
-                    v-if="lastGeneration"
-                    class="rounded-lg border p-4"
-                    :class="{
-                        'border-green-300 bg-green-50': lastGeneration.status !== 'failed',
-                        'border-red-300 bg-red-50': lastGeneration.status === 'failed',
-                    }"
-                >
-                    <p class="font-medium">
-                        Submitted — status: <span class="font-mono">{{ lastGeneration.status }}</span>
-                    </p>
-                    <p class="text-sm text-gray-600">
-                        Estimated cost: {{ formatMicros(lastGeneration.estimated_cost_micros) }}
-                    </p>
-                    <p v-if="lastGeneration.error_message" class="text-sm text-red-700">
-                        {{ lastGeneration.error_message }}
-                    </p>
-                </div>
-
                 <div class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg">
                     <form class="space-y-6" @submit.prevent="submit">
                         <div>

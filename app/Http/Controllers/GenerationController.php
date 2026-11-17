@@ -108,6 +108,33 @@ class GenerationController extends Controller
             return back()->withErrors(['prompt' => $e->getMessage()]);
         }
 
-        return redirect()->route('generate.create')->with('generation', $generation->fresh()->toArray());
+        return redirect()->route('history.index');
+    }
+
+    public function index(Request $request): Response
+    {
+        $generations = $request->user()
+            ->generations()
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        return Inertia::render('History', [
+            'generations' => $generations,
+        ]);
+    }
+
+    /**
+     * Lightweight poll target for History.vue: only the fields needed to
+     * update a row in place, only for generations still in flight.
+     */
+    public function poll(Request $request): JsonResponse
+    {
+        $generations = $request->user()
+            ->generations()
+            ->whereIn('status', [GenerationStatus::Queued, GenerationStatus::Processing])
+            ->get(['id', 'status', 'actual_cost_micros', 'image_url', 'error_code', 'error_message']);
+
+        return response()->json(['generations' => $generations]);
     }
 }

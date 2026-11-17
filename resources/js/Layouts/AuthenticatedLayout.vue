@@ -45,6 +45,12 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Generate
                                 </NavLink>
+                                <NavLink
+                                    :href="route('history.index')"
+                                    :active="route().current('history.index')"
+                                >
+                                    History
+                                </NavLink>
                             </div>
                         </div>
 
@@ -157,6 +163,12 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('generate.create')"
                         >
                             Generate
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('history.index')"
+                            :active="route().current('history.index')"
+                        >
+                            History
                         </ResponsiveNavLink>
                     </div>
 
