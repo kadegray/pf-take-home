@@ -1,7 +1,11 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
+    "name": "pf-take-home",
     "private": true,
     "type": "module",
+    "engines": {
+        "node": ">=20"
+    },
     "scripts": {
         "build": "vite build",
         "dev": "vite"
