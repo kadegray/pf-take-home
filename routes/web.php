@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\GenerationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WebhookController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -28,5 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/generate/estimate', [GenerationController::class, 'estimate'])->name('generate.estimate');
     Route::post('/generate', [GenerationController::class, 'store'])->name('generate.store');
 });
+
+Route::post('/webhooks/pixelforge', [WebhookController::class, 'handlePixelforge'])->name('webhooks.pixelforge');
 
 require __DIR__.'/auth.php';
