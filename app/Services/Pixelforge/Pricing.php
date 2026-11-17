@@ -44,6 +44,25 @@ class Pricing
 
     private const TOKENS_PER_REFERENCE_IMAGE = 765;
 
+    private const MAX_REFERENCE_IMAGES = 4;
+
+    /** @return list<string> */
+    public static function sizes(): array
+    {
+        return array_keys(self::OUTPUT_TOKENS['low']);
+    }
+
+    /** @return list<string> */
+    public static function qualities(): array
+    {
+        return array_keys(self::OUTPUT_TOKENS);
+    }
+
+    public static function maxReferenceImages(): int
+    {
+        return self::MAX_REFERENCE_IMAGES;
+    }
+
     /**
      * Pre-submit estimate, in pre-markup micro-dollars.
      *
