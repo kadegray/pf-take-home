@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Enums\GenerationStatus;
+use App\Exceptions\InsufficientBalanceException;
 use App\Http\Requests\StoreGenerationRequest;
+use App\Services\CreditLedger;
 use App\Services\Pixelforge\Client;
 use App\Services\Pixelforge\Exceptions\PixelforgeException;
 use App\Services\Pixelforge\Pricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -20,6 +23,7 @@ class GenerationController extends Controller
     public function __construct(
         private readonly Pricing $pricing,
         private readonly Client $pixelforge,
+        private readonly CreditLedger $credits,
     ) {}
 
     public function create(): Response
@@ -73,15 +77,32 @@ class GenerationController extends Controller
             )
         );
 
-        $generation = $request->user()->generations()->create([
-            'idempotency_key' => (string) Str::uuid(),
-            'prompt' => $data['prompt'],
-            'size' => $data['size'],
-            'quality' => $data['quality'],
-            'reference_images' => $referenceImages,
-            'status' => GenerationStatus::Queued,
-            'estimated_cost_micros' => $estimateMicros,
-        ]);
+        // Creating the row and holding the estimated cost happen in one
+        // transaction, so a declined hold rolls the row back too - never
+        // leaves an orphaned, un-held generation behind. The Pixelforge
+        // HTTP call happens strictly outside this transaction - never hold
+        // a row lock across an external network call.
+        try {
+            $generation = DB::transaction(function () use ($request, $data, $referenceImages, $estimateMicros) {
+                $generation = $request->user()->generations()->create([
+                    'idempotency_key' => (string) Str::uuid(),
+                    'prompt' => $data['prompt'],
+                    'size' => $data['size'],
+                    'quality' => $data['quality'],
+                    'reference_images' => $referenceImages,
+                    'status' => GenerationStatus::Queued,
+                    'estimated_cost_micros' => $estimateMicros,
+                ]);
+
+                if (! $this->credits->tryHold($generation)) {
+                    throw new InsufficientBalanceException();
+                }
+
+                return $generation;
+            });
+        } catch (InsufficientBalanceException) {
+            return back()->withErrors(['prompt' => 'Insufficient balance for this generation. Buy more credits and try again.']);
+        }
 
         try {
             $response = $this->pixelforge->createGeneration([
@@ -105,6 +126,11 @@ class GenerationController extends Controller
                 'error_message' => $e->getMessage(),
                 'completed_at' => now(),
             ]);
+
+            // Pixelforge never accepted this one - no webhook will ever
+            // arrive for it, so refund the hold right here instead of
+            // waiting for a resolution that will never come.
+            $this->credits->settle($generation, actualCostMicros: 0);
 
             return back()->withErrors(['prompt' => $e->getMessage()]);
         }

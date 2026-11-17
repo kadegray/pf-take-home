@@ -6,6 +6,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import { formatMicros } from '@/money';
 
 const showingNavigationDropdown = ref(false);
 const isAdmin = usePage().props.auth.user?.is_admin ?? false;
@@ -63,6 +64,13 @@ const isAdmin = usePage().props.auth.user?.is_admin ?? false;
                         </div>
 
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
+                            <Link
+                                :href="route('credits.create')"
+                                class="rounded-md bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                            >
+                                {{ formatMicros($page.props.auth.user.balance_micros) }}
+                            </Link>
+
                             <!-- Settings Dropdown -->
                             <div class="relative ms-3">
                                 <Dropdown align="right" width="48">
@@ -184,6 +192,12 @@ const isAdmin = usePage().props.auth.user?.is_admin ?? false;
                             :active="route().current('admin.report')"
                         >
                             Report
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('credits.create')"
+                            :active="route().current('credits.create')"
+                        >
+                            Credits: {{ formatMicros($page.props.auth.user.balance_micros) }}
                         </ResponsiveNavLink>
                     </div>
 

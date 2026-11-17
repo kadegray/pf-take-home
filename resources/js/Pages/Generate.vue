@@ -4,9 +4,12 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import { formatMicros } from '@/money';
+
+const page = usePage();
+const balanceMicros = computed(() => page.props.auth.user.balance_micros);
 
 const props = defineProps({
     sizes: { type: Array, required: true },
@@ -58,6 +61,10 @@ watch(
     scheduleEstimate,
     { deep: true, immediate: true },
 );
+
+const canAfford = computed(() => {
+    return estimatedCostMicros.value === null || estimatedCostMicros.value <= balanceMicros.value;
+});
 
 function submit() {
     form.reference_images = referenceImageInputs.value.filter((url) => url.trim() !== '');
@@ -146,9 +153,13 @@ function submit() {
                                 <p class="text-xs text-gray-400">
                                     Estimate only — the final cost is set once the generation completes.
                                 </p>
+                                <p v-if="!canAfford" class="text-xs font-medium text-red-600">
+                                    This exceeds your balance ({{ formatMicros(balanceMicros) }}).
+                                    <Link :href="route('credits.create')" class="underline">Buy more credits</Link>.
+                                </p>
                             </div>
 
-                            <PrimaryButton :disabled="form.processing">Generate</PrimaryButton>
+                            <PrimaryButton :disabled="form.processing || !canAfford">Generate</PrimaryButton>
                         </div>
                     </form>
                 </div>

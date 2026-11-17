@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\CreditController;
 use App\Http\Controllers\GenerationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WebhookController;
@@ -34,6 +35,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/history/poll', [GenerationController::class, 'poll'])->name('history.poll');
 
     Route::get('/admin/report', [ReportController::class, 'index'])->name('admin.report');
+
+    Route::get('/credits', [CreditController::class, 'create'])->name('credits.create');
+    Route::post('/credits', [CreditController::class, 'purchase'])->name('credits.purchase');
 });
 
 Route::post('/webhooks/pixelforge', [WebhookController::class, 'handlePixelforge'])->name('webhooks.pixelforge');

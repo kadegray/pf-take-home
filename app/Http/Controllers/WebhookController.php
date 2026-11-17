@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\GenerationStatus;
 use App\Models\Generation;
 use App\Models\WebhookEvent;
+use App\Services\CreditLedger;
 use App\Services\Pixelforge\Pricing;
 use App\Services\Pixelforge\WebhookSignature;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class WebhookController extends Controller
     public function __construct(
         private readonly WebhookSignature $signature,
         private readonly Pricing $pricing,
+        private readonly CreditLedger $credits,
     ) {}
 
     public function handlePixelforge(Request $request): Response
@@ -110,17 +112,20 @@ class WebhookController extends Controller
         // back by 1.25) so the admin report can reconcile exactly against
         // Pixelforge's own GET /v1/usage, which reports pre-markup cost.
         $providerCostMicros = $this->pricing->costFromUsage($usage, $rates);
+        $actualCostMicros = $this->pricing->withMarkup($providerCostMicros);
 
         $generation->update([
             'status' => GenerationStatus::Succeeded,
             'usage' => $usage,
             'rates' => $rates,
             'provider_cost_micros' => $providerCostMicros,
-            'actual_cost_micros' => $this->pricing->withMarkup($providerCostMicros),
+            'actual_cost_micros' => $actualCostMicros,
             'image_url' => $payload['image_url'] ?? null,
             'image_url_expires_at' => $payload['image_url_expires_at'] ?? null,
             'completed_at' => $payload['completed_at'] ?? now(),
         ]);
+
+        $this->credits->settle($generation, $actualCostMicros);
     }
 
     private function markFailed(Generation $generation, array $payload): void
@@ -139,6 +144,8 @@ class WebhookController extends Controller
             'provider_cost_micros' => 0,
             'completed_at' => $payload['completed_at'] ?? now(),
         ]);
+
+        $this->credits->settle($generation, actualCostMicros: 0);
     }
 
     private function isPending(Generation $generation): bool
