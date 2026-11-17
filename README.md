@@ -1,58 +1,81 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Pixelforge
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel + Vue (Inertia) app that lets signed-in users generate images through
+Pixelforge, a (fictional) async AI image-generation provider. Built as a
+take-home assessment for PromptEdit.
 
-## About Laravel
+**Live:** [https://pf-take-home.ibexel.com/](https://pf-take-home.ibexel.com/)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## What it does
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **Generate** an image from a prompt, size, quality, and optional reference
+  images, with a live, server-computed cost estimate before you submit.
+- **History** shows each generation's live status (queued → processing →
+  succeeded/failed), its estimated and final cost, and the resulting image.
+- **Credits**: every account starts with a small balance; generating holds the
+  estimate up front and settles to the real cost once Pixelforge resolves it.
+  A "buy credits" page tops up the balance (fake, no real payment).
+- **Admin report** (for admin users): spend, provider cost, and profit by day
+  and by user, reconcilable against Pixelforge's own `GET /v1/usage`.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Why it's built this way
 
-## Learning Laravel
+Pixelforge's cost is only fully known after a generation completes, and it
+comes in fractions of a cent — so this app never does money math in floats.
+`Pricing` converts token usage to cost using `bcmath` on integer **micros**
+(1,000,000ths of a dollar), round-half-up throughout, with the 25% markup
+applied to the already-rounded provider cost.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+Pixelforge delivers results as webhooks, and webhooks can arrive twice or out
+of order. `WebhookController` handles both:
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- Every event is recorded under a **database-level unique constraint** on its
+  event id, so a redelivered event — even concurrently — is a no-op rather
+  than being double-processed.
+- Generation status moves through a small guarded state machine
+  (`queued → processing → succeeded|failed`); once a generation is terminal,
+  later/stale events for it are ignored instead of overwriting the result.
+- Failed generations always cost $0, on both the webhook path and the
+  synchronous path where Pixelforge rejects a request outright.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+Credits use a **hold-then-settle** ledger (`CreditLedger`): submitting a
+generation holds the estimate under a locked user row (so concurrent
+submissions can't overdraw a balance), and the hold is reconciled to the real
+cost — refunded on failure, adjusted by the delta on success — once the
+generation resolves.
 
-## Agentic Development
+## Local setup
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Requires PHP 8.3+, Node (see `.nvmrc`), and Postgres.
 
 ```bash
-composer require laravel/boost --dev
+composer install
+npm install
 
-php artisan boost:install
+cp .env.example .env
+php artisan key:generate
+# fill in PIXELFORGE_API_KEY / PIXELFORGE_WEBHOOK_SECRET and your DB_* values
+
+php artisan migrate
+
+npm run dev        # Vite dev server
+php artisan serve  # or your preferred local server
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Local mail (registration/verification) is caught by [Mailpit](https://github.com/axllent/mailpit)
+on `127.0.0.1:1025`; the Mailpit UI defaults to `http://127.0.0.1:8025`.
 
-## Contributing
+Pixelforge needs its own API key and webhook signing secret per environment —
+local and deployed each have their own webhook URL/secret pair.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Tests
 
-## Code of Conduct
+```bash
+php artisan test
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Covers pricing/rounding correctness (`tests/Unit/PricingTest.php`), webhook
+signature verification, idempotency, and out-of-order delivery
+(`tests/Feature/WebhookTest.php`), the credit ledger
+(`tests/Feature/CreditLedgerTest.php`, `GenerationBalanceTest.php`), and the
+admin report (`tests/Feature/AdminReportTest.php`).

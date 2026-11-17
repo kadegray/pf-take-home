@@ -133,6 +133,32 @@ class WebhookTest extends TestCase
         $this->assertSame($firstCostMicros, $generation->refresh()->actual_cost_micros);
     }
 
+    public function test_concurrent_duplicate_delivery_is_a_no_op_not_a_server_error(): void
+    {
+        $generation = $this->makeGeneration();
+        $payload = $this->succeededPayload($generation);
+
+        // Simulate a concurrent winner that already committed its insert for
+        // this event id the instant before this request's own insert runs -
+        // the real race is between two requests' INSERTs, but inserting the
+        // row ourselves first and then delivering the same event id exercises
+        // the same code path: recordEvent() must see the unique-constraint
+        // violation and no-op, not bubble up as a 500 or abort the webhook's
+        // own transaction.
+        WebhookEvent::create([
+            'pixelforge_event_id' => 'evt_concurrent',
+            'type' => 'generation.succeeded',
+            'payload' => $payload,
+            'processed_at' => now(),
+        ]);
+
+        $response = $this->postWebhook($payload, 'evt_concurrent', 'generation.succeeded');
+
+        $response->assertSuccessful();
+        $this->assertSame(1, WebhookEvent::count());
+        $this->assertSame(GenerationStatus::Queued, $generation->refresh()->status);
+    }
+
     public function test_stale_processing_after_succeeded_does_not_regress_status_or_cost(): void
     {
         $generation = $this->makeGeneration();

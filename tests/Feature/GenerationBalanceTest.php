@@ -65,4 +65,46 @@ class GenerationBalanceTest extends TestCase
             'amount_micros' => -$generation->estimated_cost_micros,
         ]);
     }
+
+    public function test_store_fully_refunds_the_hold_when_pixelforge_rejects_the_request(): void
+    {
+        Http::fake([
+            'pixelforge.promptedit.dev/*' => Http::response([
+                'error' => ['code' => 'content_policy_violation', 'message' => 'Rejected.'],
+            ], 422),
+        ]);
+
+        $user = User::factory()->create(['balance_micros' => 1_000_000_000]);
+
+        $response = $this->actingAs($user)->post('/generate', [
+            'prompt' => 'a prompt pixelforge will reject',
+            'size' => '1024x1024',
+            'quality' => 'low',
+            'reference_images' => [],
+        ]);
+
+        $response->assertSessionHasErrors('prompt');
+
+        $generation = Generation::sole();
+        $this->assertSame('failed', $generation->status->value);
+        $this->assertSame(0, $generation->actual_cost_micros);
+        $this->assertSame(0, $generation->provider_cost_micros);
+
+        // The hold was taken then fully refunded - balance ends back where
+        // it started, not left down by the estimate.
+        $this->assertSame(1_000_000_000, $user->fresh()->balance_micros);
+
+        $this->assertDatabaseHas('credit_transactions', [
+            'user_id' => $user->id,
+            'generation_id' => $generation->id,
+            'type' => 'hold',
+            'amount_micros' => -$generation->estimated_cost_micros,
+        ]);
+        $this->assertDatabaseHas('credit_transactions', [
+            'user_id' => $user->id,
+            'generation_id' => $generation->id,
+            'type' => 'settlement',
+            'amount_micros' => $generation->estimated_cost_micros,
+        ]);
+    }
 }

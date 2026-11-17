@@ -8,6 +8,7 @@ use App\Models\WebhookEvent;
 use App\Services\CreditLedger;
 use App\Services\Pixelforge\Pricing;
 use App\Services\Pixelforge\WebhookSignature;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -53,12 +54,36 @@ class WebhookController extends Controller
 
     private function recordEvent(string $eventId, string $type, array $payload): ?WebhookEvent
     {
-        $event = WebhookEvent::firstOrCreate(
-            ['pixelforge_event_id' => $eventId],
-            ['type' => $type, 'payload' => $payload, 'processed_at' => now()],
-        );
+        // A plain firstOrCreate() is race-safe for sequential redelivery, but
+        // under truly concurrent delivery of the same event id both requests
+        // can pass the read and race the insert - catch the loser's unique
+        // violation here instead of letting it bubble up as a 500. The insert
+        // is wrapped in its own transaction so Postgres uses a savepoint: a
+        // caught violation rolls back to it rather than aborting the outer
+        // transaction this runs inside.
+        try {
+            return DB::transaction(fn () => WebhookEvent::create([
+                'pixelforge_event_id' => $eventId,
+                'type' => $type,
+                'payload' => $payload,
+                'processed_at' => now(),
+            ]));
+        } catch (QueryException $e) {
+            if ($this->isUniqueViolation($e)) {
+                return null;
+            }
 
-        return $event->wasRecentlyCreated ? $event : null;
+            throw $e;
+        }
+    }
+
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        // '23505' is Postgres (production); '23000' is SQLite's generic
+        // integrity-constraint code (used in tests), so pair it with a
+        // message check to avoid swallowing unrelated SQLite errors.
+        return $e->getCode() === '23505'
+            || ($e->getCode() === '23000' && str_contains($e->getMessage(), 'UNIQUE constraint failed'));
     }
 
     private function applyEvent(string $type, array $generationPayload): void
