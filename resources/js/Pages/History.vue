@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { formatMicros } from '@/money';
+import { statusClasses } from '@/statusBadge';
 import { Head, Link } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, reactive } from 'vue';
 
@@ -55,13 +56,6 @@ onUnmounted(() => {
     }
 });
 
-const statusClasses = {
-    queued: 'bg-gray-100 text-gray-700',
-    processing: 'bg-blue-100 text-blue-700',
-    succeeded: 'bg-green-100 text-green-700',
-    failed: 'bg-red-100 text-red-700',
-};
-
 function hideBrokenImage(event) {
     event.target.style.visibility = 'hidden';
 }
@@ -110,13 +104,14 @@ function hideBrokenImage(event) {
                                     {{ isTerminal(row.status) ? formatMicros(row.actual_cost_micros) : '—' }}
                                 </td>
                                 <td class="px-4 py-3">
-                                    <img
-                                        v-if="row.image_url"
-                                        :src="row.image_url"
-                                        alt=""
-                                        class="h-12 w-12 rounded object-cover"
-                                        @error="hideBrokenImage"
-                                    />
+                                    <Link v-if="row.image_url" :href="route('history.show', row.id)">
+                                        <img
+                                            :src="row.image_url"
+                                            alt=""
+                                            class="h-12 w-12 rounded object-cover"
+                                            @error="hideBrokenImage"
+                                        />
+                                    </Link>
                                     <span v-else class="text-gray-400">—</span>
                                 </td>
                             </tr>

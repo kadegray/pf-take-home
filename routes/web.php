@@ -15,9 +15,9 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [GenerationController::class, 'dashboard'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/history', [GenerationController::class, 'index'])->name('history.index');
     Route::get('/history/poll', [GenerationController::class, 'poll'])->name('history.poll');
+    Route::get('/history/{generation}', [GenerationController::class, 'show'])->name('history.show');
 
     Route::get('/admin/report', [ReportController::class, 'index'])->name('admin.report');
 

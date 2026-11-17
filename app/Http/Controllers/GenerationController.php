@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\GenerationStatus;
 use App\Exceptions\InsufficientBalanceException;
 use App\Http\Requests\StoreGenerationRequest;
+use App\Models\Generation;
 use App\Services\CreditLedger;
 use App\Services\Pixelforge\Client;
 use App\Services\Pixelforge\Exceptions\PixelforgeException;
@@ -163,5 +164,24 @@ class GenerationController extends Controller
             ->get(['id', 'status', 'actual_cost_micros', 'image_url', 'error_code', 'error_message']);
 
         return response()->json(['generations' => $generations]);
+    }
+
+    public function show(Request $request, Generation $generation): Response
+    {
+        abort_unless($generation->user_id === $request->user()->id, 404);
+
+        return Inertia::render('GenerationShow', ['generation' => $generation]);
+    }
+
+    public function dashboard(Request $request): Response
+    {
+        $generations = $request->user()
+            ->generations()
+            ->whereNotNull('image_url')
+            ->latest()
+            ->take(12)
+            ->get(['id', 'image_url', 'image_url_expires_at', 'prompt', 'status']);
+
+        return Inertia::render('Dashboard', ['generations' => $generations]);
     }
 }
